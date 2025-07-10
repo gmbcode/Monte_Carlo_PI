@@ -2,12 +2,14 @@
 #include <iostream>
 #include <curand_kernel.h>
 #include <cmath>
+#include <random>
+#include <iomanip>
 __device__ unsigned long long int countin = 0;
 // TODO increase efficiency and utilisation 
-__global__ void setup_kernel(curandState *state)
+__global__ void setup_kernel(int seed,curandState *state)
 {
   auto id = threadIdx.x + blockIdx.x * blockDim.x;
-  curand_init(123456, id, 0, &state[id]);
+  curand_init(seed, id, 0, &state[id]);
 }
 
 __global__ void simulate_mc_pi(curandState *state) {
@@ -41,7 +43,9 @@ __global__ void readerin(unsigned long long int* result){
 int main() {
     curandState* dStates;
     cudaMalloc((void **) &dStates, sizeof(curandState) * 2048 * 256);  
-    setup_kernel<<<2048,256>>>(dStates);
+    std::random_device rd;
+    int seed = rd();
+    setup_kernel<<<2048,256>>>(seed,dStates);
     cudaDeviceSynchronize();
     simulate_mc_pi<<<2048, 256>>>(dStates);
     cudaDeviceSynchronize();
@@ -58,7 +62,7 @@ int main() {
     std::cout << "Total number of points is : " << total_points_sampled << std :: endl;
     std::cout << "Number of points inside the circle are : " << counter_in << std :: endl;
     long double pi_estimate = 4.0 * (long double)counter_in / (long double)total_points_sampled;
-    std::cout << "Estimated Pi : " << pi_estimate << std::endl;
+    std::cout << "Estimated Pi : " << std::setprecision (15) << pi_estimate << std::endl;
 
     return 0;
 }
