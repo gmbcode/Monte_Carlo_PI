@@ -1,4 +1,5 @@
 #include <cuda_runtime.h>
+#include <cuda_profiler_api.h>
 #include <iostream>
 #include <curand_kernel.h>
 #include <cmath>
@@ -42,13 +43,17 @@ __global__ void readerin(unsigned long long int* result){
 
 int main() {
     curandState* dStates;
+    unsigned long long int total_points_sampled = 2048ULL * 256ULL * 100000ULL;
+    cudaProfilerStart();
     cudaMalloc((void **) &dStates, sizeof(curandState) * 2048 * 256);  
     std::random_device rd;
     int seed = rd();
     setup_kernel<<<2048,256>>>(seed,dStates);
     cudaDeviceSynchronize();
+    std :: cout << "Sampling random points now ..." << std :: endl ;
     simulate_mc_pi<<<2048, 256>>>(dStates);
     cudaDeviceSynchronize();
+    std::cout << "Finished sampling " << total_points_sampled << " points " << std :: endl;
     unsigned long long int* resultin;
     cudaMalloc(&resultin, sizeof(unsigned long long int));
     unsigned long long int counter_in;
@@ -56,9 +61,12 @@ int main() {
     readerin<<<1, 1>>>(resultin);
     cudaDeviceSynchronize();
     cudaMemcpy(&counter_in, resultin, sizeof(unsigned long long int), cudaMemcpyDeviceToHost);
+    std::cout << "Cleaning up..."<< std :: endl;
     cudaFree(resultin); 
     cudaFree(dStates);
-    unsigned long long int total_points_sampled = 2048ULL * 256ULL * 100000ULL;
+    std::cout << "Finished cleaning up sucessfully"<< std :: endl;
+    cudaProfilerStop();
+    
     std::cout << "Total number of points is : " << total_points_sampled << std :: endl;
     std::cout << "Number of points inside the circle are : " << counter_in << std :: endl;
     long double pi_estimate = 4.0 * (long double)counter_in / (long double)total_points_sampled;
