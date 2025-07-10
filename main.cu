@@ -15,7 +15,11 @@ __global__ void setup_kernel(int seed,curandState *state)
 
 __global__ void simulate_mc_pi(curandState *state) {
     int tid = blockIdx.x * blockDim.x + threadIdx.x;
-    
+    __shared__ unsigned long long int shared_in;
+    if (threadIdx.x == 0) {
+        shared_in = 0;
+    }
+    __syncthreads();
     // Each thread's local counter
     unsigned long long local_inside = 0;
     
@@ -31,8 +35,12 @@ __global__ void simulate_mc_pi(curandState *state) {
         }
     }
     
-    // Add to global counter atomically
-    atomicAdd(&countin, local_inside);
+    // Add to shared counter atomically
+    atomicAdd(&shared_in, local_inside);
+    __syncthreads();
+    if(threadIdx.x == blockDim.x - 1){
+        atomicAdd(&countin,shared_in);
+    }
 }
 
 __global__ void readerin(unsigned long long int* result){
